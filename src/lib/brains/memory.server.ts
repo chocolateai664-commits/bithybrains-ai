@@ -50,8 +50,8 @@ export async function searchMemories(
     query_embedding: toVector(queryEmbedding) as unknown as string,
     match_user_id: userId,
     match_count: options.limit ?? 5,
-    filter_application: options.application ?? null,
-    filter_type: options.type ?? null,
+    filter_application: options.application ?? undefined,
+    filter_type: options.type ?? undefined,
   });
   if (error) throw new Error(error.message);
   return (data ?? []) as RetrievedMemory[];
