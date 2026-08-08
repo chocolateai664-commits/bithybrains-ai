@@ -110,7 +110,7 @@ function Console() {
                 id: a.id,
                 primary: a.name,
                 secondary: a.slug,
-                badge: a.is_active ? "active" : "disabled",
+                badge: a.status,
               }))}
             />
             <Registry
@@ -119,7 +119,7 @@ function Console() {
                 id: t.id,
                 primary: t.name,
                 secondary: `${t.runs} runs · ${t.failures} failed · ${t.avgMs} ms avg`,
-                badge: t.is_active ? "enabled" : "off",
+                badge: t.status,
               }))}
             />
             <Registry
@@ -128,7 +128,7 @@ function Console() {
                 id: m.id,
                 primary: m.model_id,
                 secondary: `${m.provider} · ${m.cost_tier}`,
-                badge: m.is_active ? "active" : "off",
+                badge: m.status,
               }))}
             />
           </TabsContent>
@@ -316,8 +316,8 @@ function Playground() {
               {
                 role: "bithy",
                 content: response.message,
-                meta: `intent: ${response.reasoning.intent} · tools: ${
-                  response.reasoning.toolsUsed.join(", ") || "none"
+                meta: `intent: ${response.reasoning?.intent ?? "n/a"} · tools: ${
+                  response.reasoning?.toolsUsed.join(", ") || "none"
                 }`,
               },
             ]);
