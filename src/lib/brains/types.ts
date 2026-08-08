@@ -34,7 +34,7 @@ export interface BrainSource {
 
 export interface BrainAction {
   type: string;
-  payload: Record<string, unknown>;
+  payload: Record<string, string | number | boolean | null>;
 }
 
 export interface BrainResponse {

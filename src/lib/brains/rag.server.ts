@@ -10,7 +10,7 @@ import type { RetrievedChunk } from "./types";
 export async function ingestDocument(
   db: Db,
   userId: string,
-  input: { title: string; text: string; fileType?: string; application?: string | undefined },
+  input: { title: string; text: string; fileType?: string | undefined; application?: string | undefined },
 ): Promise<{ documentId: string; chunks: number }> {
   const { data: doc, error } = await db
     .from("documents")
