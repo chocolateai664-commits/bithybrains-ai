@@ -19,11 +19,11 @@ export type BithyIntent =
 
 export interface BrainRequest {
   message: string;
-  conversationId?: string;
+  conversationId?: string | undefined;
   userId: string;
-  application?: string;
-  page?: string;
-  context?: Record<string, unknown>;
+  application?: string | undefined;
+  page?: string | undefined;
+  context?: Record<string, unknown> | undefined;
 }
 
 export interface BrainSource {
