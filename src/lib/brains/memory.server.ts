@@ -46,13 +46,21 @@ export async function searchMemories(
   queryEmbedding: number[],
   options: { limit?: number; application?: string | undefined; type?: string | undefined } = {},
 ): Promise<RetrievedMemory[]> {
-  const { data, error } = await db.rpc("match_memories", {
-    query_embedding: toVector(queryEmbedding) as unknown as string,
+  const args: {
+    query_embedding: string;
+    match_user_id: string;
+    match_count: number;
+    filter_application?: string;
+    filter_type?: string;
+  } = {
+    query_embedding: toVector(queryEmbedding),
     match_user_id: userId,
     match_count: options.limit ?? 5,
-    filter_application: options.application ?? undefined,
-    filter_type: options.type ?? undefined,
-  });
+  };
+  if (options.application) args.filter_application = options.application;
+  if (options.type) args.filter_type = options.type;
+
+  const { data, error } = await db.rpc("match_memories", args);
   if (error) throw new Error(error.message);
   return (data ?? []) as RetrievedMemory[];
 }
