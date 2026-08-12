@@ -137,9 +137,14 @@ function Console() {
             />
           </TabsContent>
 
+          <TabsContent value="audit" className="mt-6">
+            <AuditPanel />
+          </TabsContent>
+
           <TabsContent value="playground" className="mt-6">
             <Playground />
           </TabsContent>
+
         </Tabs>
       </div>
     </div>
