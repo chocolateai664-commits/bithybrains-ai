@@ -65,8 +65,10 @@ function Console() {
             <TabsTrigger value="memory">Memory</TabsTrigger>
             <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
             <TabsTrigger value="registry">Registry</TabsTrigger>
+            <TabsTrigger value="audit">Audit</TabsTrigger>
             <TabsTrigger value="playground">Playground</TabsTrigger>
           </TabsList>
+
 
           <TabsContent value="overview" className="mt-6 space-y-4">
             {overview.isLoading ? (
