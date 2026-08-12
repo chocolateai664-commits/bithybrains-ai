@@ -27,7 +27,16 @@ function denied(result: { error: unknown; data: unknown }): boolean {
   return Array.isArray(result.data) ? result.data.length === 0 : result.data == null;
 }
 
+/**
+ * Postgres RLS silently affects zero rows when no policy matches an UPDATE/DELETE,
+ * so a write is only "allowed" if it actually returns mutated rows.
+ */
+function mutationDenied(result: { error: unknown; data: unknown }): boolean {
+  return denied(result);
+}
+
 const RANDOM_UUID = "00000000-0000-4000-8000-000000000001";
+
 
 describe("server-only helpers are not callable by client roles", () => {
   it("has_role() cannot be executed with the publishable key", async () => {
