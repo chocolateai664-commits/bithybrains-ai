@@ -30,7 +30,7 @@ export const getBrainOverview = createServerFn({ method: "GET" })
         supabase.from("applications").select("*").order("name"),
         supabase.from("tools").select("*").order("name"),
         supabase.from("ai_models").select("*").order("priority"),
-        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+        supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
       ]);
 
     const reqRows = requests.data ?? [];
@@ -47,7 +47,7 @@ export const getBrainOverview = createServerFn({ method: "GET" })
     }
 
     return {
-      isAdmin: admin.data === true,
+      isAdmin: !!admin.data,
       health: {
         api: "operational" as const,
         database: memories.error ? ("degraded" as const) : ("operational" as const),
