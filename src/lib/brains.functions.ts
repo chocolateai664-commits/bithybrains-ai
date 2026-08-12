@@ -47,7 +47,7 @@ export const getBrainOverview = createServerFn({ method: "GET" })
     }
 
     return {
-      isAdmin: admin.data === true,
+      isAdmin: !!admin.data,
       health: {
         api: "operational" as const,
         database: memories.error ? ("degraded" as const) : ("operational" as const),
