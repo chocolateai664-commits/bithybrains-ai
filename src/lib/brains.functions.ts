@@ -106,7 +106,55 @@ export const deleteMemory = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const listAuditEvents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        search: z.string().trim().max(120).optional(),
+        limit: z.number().int().min(10).max(200).default(100),
+      })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    // RLS decides visibility: admins see every row, everyone else only their own.
+    let auditQuery = supabase
+      .from("audit_logs")
+      .select("id, user_id, action, resource, metadata, created_at")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.search) auditQuery = auditQuery.ilike("action", `%${data.search}%`);
+
+    const [audit, tools, requests, admin] = await Promise.all([
+      auditQuery,
+      supabase
+        .from("tool_executions")
+        .select("id, tool_slug, success, duration_ms, application, error, created_at")
+        .order("created_at", { ascending: false })
+        .limit(data.limit),
+      supabase
+        .from("ai_requests")
+        .select("id, model_id, provider, intent, success, error, tools_used, created_at")
+        .order("created_at", { ascending: false })
+        .limit(data.limit),
+      supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+    ]);
+
+    if (audit.error) throw new Error(audit.error.message);
+
+    return {
+      isAdmin: !!admin.data,
+      scope: admin.data ? ("all" as const) : ("own" as const),
+      auditLogs: audit.data ?? [],
+      toolExecutions: tools.data ?? [],
+      aiRequests: requests.data ?? [],
+    };
+  });
+
 export const listConversations = createServerFn({ method: "GET" })
+
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
