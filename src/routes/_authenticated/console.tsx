@@ -13,10 +13,12 @@ import {
   deleteMemory,
   getBrainOverview,
   ingestKnowledge,
+  listAuditEvents,
   listDocuments,
   listMemories,
   sendBrainMessage,
 } from "@/lib/brains.functions";
+
 
 export const Route = createFileRoute("/_authenticated/console")({
   head: () => ({
@@ -63,8 +65,10 @@ function Console() {
             <TabsTrigger value="memory">Memory</TabsTrigger>
             <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
             <TabsTrigger value="registry">Registry</TabsTrigger>
+            <TabsTrigger value="audit">Audit</TabsTrigger>
             <TabsTrigger value="playground">Playground</TabsTrigger>
           </TabsList>
+
 
           <TabsContent value="overview" className="mt-6 space-y-4">
             {overview.isLoading ? (
@@ -133,9 +137,14 @@ function Console() {
             />
           </TabsContent>
 
+          <TabsContent value="audit" className="mt-6">
+            <AuditPanel />
+          </TabsContent>
+
           <TabsContent value="playground" className="mt-6">
             <Playground />
           </TabsContent>
+
         </Tabs>
       </div>
     </div>
@@ -179,6 +188,98 @@ function Registry({
     </section>
   );
 }
+
+function AuditPanel() {
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const eventsFn = useServerFn(listAuditEvents);
+  const events = useQuery({
+    queryKey: ["audit-events", query],
+    queryFn: () => eventsFn({ data: { limit: 100, ...(query ? { search: query } : {}) } }),
+  });
+
+  const when = (iso: string) => new Date(iso).toLocaleString();
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter by action, e.g. tool. or memory."
+          className="max-w-xs"
+        />
+        <Button size="sm" onClick={() => setQuery(search.trim())}>
+          Filter
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => events.refetch()}>
+          Refresh
+        </Button>
+        {events.data ? (
+          <Badge variant="outline">{events.data.scope === "all" ? "admin · all users" : "your activity only"}</Badge>
+        ) : null}
+      </div>
+
+      <section className="space-y-2">
+        <h3 className="label-mono">Audit log</h3>
+        {events.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading events…</p>
+        ) : (events.data?.auditLogs ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">No audit events recorded yet.</p>
+        ) : (
+          (events.data?.auditLogs ?? []).map((row) => (
+            <div key={row.id} className="panel p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono text-sm text-foreground">{row.action}</span>
+                <span className="label-mono">{when(row.created_at)}</span>
+              </div>
+              <p className="label-mono mt-1 break-all">
+                {row.resource ? `${row.resource} · ` : ""}
+                {JSON.stringify(row.metadata)}
+              </p>
+            </div>
+          ))
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="label-mono">Tool executions</h3>
+        {(events.data?.toolExecutions ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">No tool executions recorded.</p>
+        ) : (
+          (events.data?.toolExecutions ?? []).map((row) => (
+            <div key={row.id} className="panel flex flex-wrap items-center justify-between gap-2 p-4">
+              <span className="font-mono text-sm text-foreground">{row.tool_slug}</span>
+              <span className="label-mono">
+                {row.success ? "ok" : `failed: ${row.error ?? "unknown"}`} · {row.duration_ms} ms · {when(row.created_at)}
+              </span>
+            </div>
+          ))
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="label-mono">Model requests</h3>
+        {(events.data?.aiRequests ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">No model requests recorded.</p>
+        ) : (
+          (events.data?.aiRequests ?? []).map((row) => (
+            <div key={row.id} className="panel flex flex-wrap items-center justify-between gap-2 p-4">
+              <span className="font-mono text-sm text-foreground">
+                {row.model_id} <span className="text-muted-foreground">· {row.intent ?? "unclassified"}</span>
+              </span>
+              <span className="label-mono">
+                {row.success ? "ok" : `failed: ${row.error ?? "unknown"}`}
+                {row.tools_used.length ? ` · ${row.tools_used.join(", ")}` : ""} · {when(row.created_at)}
+              </span>
+            </div>
+          ))
+        )}
+      </section>
+    </div>
+  );
+}
+
 
 function MemoryPanel() {
   const queryClient = useQueryClient();
