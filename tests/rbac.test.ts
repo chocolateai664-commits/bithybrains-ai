@@ -60,8 +60,8 @@ describe("audit_logs write path is protected", () => {
   });
 
   it("rejects client updates and deletes", async () => {
-    expect((await client.from("audit_logs").update({ action: "x" }).eq("id", RANDOM_UUID)).error).toBeTruthy();
-    expect((await client.from("audit_logs").delete().eq("id", RANDOM_UUID)).error).toBeTruthy();
+    expect(mutationDenied(await client.from("audit_logs").update({ action: "x" }).eq("id", RANDOM_UUID).select())).toBe(true);
+    expect(mutationDenied(await client.from("audit_logs").delete().eq("id", RANDOM_UUID).select())).toBe(true);
   });
 
   it("exposes no rows to an unauthenticated reader", async () => {
@@ -76,13 +76,14 @@ describe("user_roles cannot be escalated from the client", () => {
   });
 
   it("rejects updating an existing role", async () => {
-    const res = await client.from("user_roles").update({ role: "admin" }).eq("user_id", RANDOM_UUID);
-    expect(res.error).toBeTruthy();
+    const res = await client.from("user_roles").update({ role: "admin" }).eq("user_id", RANDOM_UUID).select();
+    expect(mutationDenied(res)).toBe(true);
   });
 
   it("rejects deleting role rows", async () => {
-    expect((await client.from("user_roles").delete().eq("user_id", RANDOM_UUID)).error).toBeTruthy();
+    expect(mutationDenied(await client.from("user_roles").delete().eq("user_id", RANDOM_UUID).select())).toBe(true);
   });
+
 
   it("exposes no role rows without a session", async () => {
     expect(denied(await client.from("user_roles").select("user_id, role").limit(5))).toBe(true);
