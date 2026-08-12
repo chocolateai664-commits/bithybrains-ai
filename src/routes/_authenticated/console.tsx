@@ -13,10 +13,12 @@ import {
   deleteMemory,
   getBrainOverview,
   ingestKnowledge,
+  listAuditEvents,
   listDocuments,
   listMemories,
   sendBrainMessage,
 } from "@/lib/brains.functions";
+
 
 export const Route = createFileRoute("/_authenticated/console")({
   head: () => ({
