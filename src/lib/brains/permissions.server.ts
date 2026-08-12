@@ -62,8 +62,14 @@ export async function authorizeTool(db: Db, input: AuthorizeInput): Promise<Perm
 }
 
 export async function isAdmin(db: Db, userId: string): Promise<boolean> {
-  const { data } = await db.rpc("has_role", { _user_id: userId, _role: "admin" });
-  return data === true;
+  // Role checks read the role table directly under RLS (users may read only their own roles).
+  const { data } = await db
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  return !!data;
 }
 
 export async function auditLog(
