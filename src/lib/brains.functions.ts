@@ -112,6 +112,9 @@ export const listAuditEvents = createServerFn({ method: "GET" })
     z
       .object({
         search: z.string().trim().max(120).optional(),
+        requestId: z.string().uuid().optional(),
+        from: z.string().datetime().optional(),
+        to: z.string().datetime().optional(),
         limit: z.number().int().min(10).max(200).default(100),
       })
       .parse(input ?? {}),
@@ -120,25 +123,47 @@ export const listAuditEvents = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
 
     // RLS decides visibility: admins see every row, everyone else only their own.
-    let auditQuery = supabase
-      .from("audit_logs")
-      .select("id, user_id, action, resource, metadata, created_at")
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
+    const withFilters = <T extends { gte: (c: string, v: string) => T; lte: (c: string, v: string) => T; eq: (c: string, v: string) => T }>(
+      q: T,
+    ): T => {
+      let out = q;
+      if (data.from) out = out.gte("created_at", data.from);
+      if (data.to) out = out.lte("created_at", data.to);
+      if (data.requestId) out = out.eq("request_id", data.requestId);
+      return out;
+    };
+
+    let auditQuery = withFilters(
+      supabase
+        .from("audit_logs")
+        .select("id, user_id, action, resource, request_id, metadata, created_at")
+        .order("created_at", { ascending: false })
+        .limit(data.limit),
+    );
     if (data.search) auditQuery = auditQuery.ilike("action", `%${data.search}%`);
+
+    let toolQuery = withFilters(
+      supabase
+        .from("tool_executions")
+        .select("id, tool_slug, success, duration_ms, application, request_id, error, created_at")
+        .order("created_at", { ascending: false })
+        .limit(data.limit),
+    );
+    if (data.search) toolQuery = toolQuery.ilike("tool_slug", `%${data.search}%`);
+
+    let requestQuery = withFilters(
+      supabase
+        .from("ai_requests")
+        .select("id, model_id, provider, intent, success, error, tools_used, request_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(data.limit),
+    );
+    if (data.search) requestQuery = requestQuery.ilike("model_id", `%${data.search}%`);
 
     const [audit, tools, requests, admin] = await Promise.all([
       auditQuery,
-      supabase
-        .from("tool_executions")
-        .select("id, tool_slug, success, duration_ms, application, error, created_at")
-        .order("created_at", { ascending: false })
-        .limit(data.limit),
-      supabase
-        .from("ai_requests")
-        .select("id, model_id, provider, intent, success, error, tools_used, created_at")
-        .order("created_at", { ascending: false })
-        .limit(data.limit),
+      toolQuery,
+      requestQuery,
       supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
     ]);
 
@@ -152,6 +177,7 @@ export const listAuditEvents = createServerFn({ method: "GET" })
       aiRequests: requests.data ?? [],
     };
   });
+
 
 export const listConversations = createServerFn({ method: "GET" })
 

@@ -130,7 +130,7 @@ export async function runTool(
   db: Db,
   toolId: string,
   ctx: ToolContext,
-  options: { confirmed?: boolean; conversationId?: string } = {},
+  options: { confirmed?: boolean; conversationId?: string; requestId?: string } = {},
 ): Promise<ToolRunOutcome> {
   const started = Date.now();
   const tool = makeRegistry(db)[toolId];
@@ -159,14 +159,14 @@ export async function runTool(
     if (decision.requiresConfirmation) {
       outcome.actions = [{ type: "confirmation_required", payload: { tool: tool.id } }];
     }
-    await logExecution(db, ctx.userId, tool.id, ctx.application, options.conversationId, outcome);
+    await logExecution(db, ctx.userId, tool.id, ctx.application, options.conversationId, options.requestId, outcome);
     return outcome;
   }
 
   try {
     const result = await tool.execute(ctx);
     const outcome: ToolRunOutcome = { toolId, ...result, durationMs: Date.now() - started };
-    await logExecution(db, ctx.userId, tool.id, ctx.application, options.conversationId, outcome);
+    await logExecution(db, ctx.userId, tool.id, ctx.application, options.conversationId, options.requestId, outcome);
     return outcome;
   } catch (error) {
     const outcome: ToolRunOutcome = {
@@ -176,7 +176,7 @@ export async function runTool(
       error: error instanceof Error ? error.message : "Tool execution failed",
       durationMs: Date.now() - started,
     };
-    await logExecution(db, ctx.userId, tool.id, ctx.application, options.conversationId, outcome);
+    await logExecution(db, ctx.userId, tool.id, ctx.application, options.conversationId, options.requestId, outcome);
     return outcome;
   }
 }
@@ -187,12 +187,14 @@ async function logExecution(
   toolSlug: string,
   application: string | undefined,
   conversationId: string | undefined,
+  requestId: string | undefined,
   outcome: ToolRunOutcome,
 ): Promise<void> {
   await db.from("tool_executions").insert({
     user_id: userId,
     tool_slug: toolSlug,
     conversation_id: conversationId ?? null,
+    request_id: requestId ?? null,
     application: application ?? null,
     success: outcome.ok,
     duration_ms: outcome.durationMs,

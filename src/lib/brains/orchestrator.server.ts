@@ -3,6 +3,7 @@ import { assembleContext, renderContextBlock } from "./context.server";
 import type { Db } from "./db.server";
 import { classifyIntent } from "./intent.server";
 import { applyMemoryPolicy, rememberIfUseful } from "./memory.server";
+import { auditLog } from "./permissions.server";
 import { personaSystemPrompt } from "./personality.server";
 import { embedQuery } from "./rag.server";
 import { runTool } from "./tools.server";
@@ -31,9 +32,13 @@ export async function runBrain(
   request: Omit<BrainRequest, "userId">,
 ): Promise<BrainResponse> {
   const startedAt = Date.now();
+  // Correlation ID: groups every audit event, tool execution and model request
+  // produced by this single chat turn.
+  const requestId = crypto.randomUUID();
   const decision = classifyIntent(request.message);
 
   const conversationId = await ensureConversation(db, userId, request);
+
 
   await db.from("messages").insert({
     conversation_id: conversationId,
@@ -74,7 +79,7 @@ export async function runBrain(
         db,
         toolId,
         { userId, application: request.application, query: request.message, queryEmbedding },
-        { conversationId },
+        { conversationId, requestId },
       );
       toolsUsed.push(toolId);
       if (outcome.ok) {
@@ -134,12 +139,13 @@ export async function runBrain(
     user_id: userId,
     role: "assistant",
     content: text,
-    metadata: { intent: decision.intent, tools_used: toolsUsed } as never,
+    metadata: { intent: decision.intent, tools_used: toolsUsed, request_id: requestId } as never,
   });
 
   await db.from("ai_requests").insert({
     user_id: userId,
     conversation_id: conversationId,
+    request_id: requestId,
     model_id: modelId,
     provider,
     intent: decision.intent,
@@ -154,6 +160,14 @@ export async function runBrain(
     error: errorMessage ?? null,
   });
 
+  await auditLog(db, {
+    userId,
+    action: "brain.chat.turn",
+    resource: conversationId,
+    requestId,
+    metadata: { intent: decision.intent, tools_used: toolsUsed, model_id: modelId, success },
+  });
+
   // Memory update — policy-gated and deduplicated.
   await rememberIfUseful(db, userId, applyMemoryPolicy(request.message), {
     application: request.application,
@@ -164,6 +178,7 @@ export async function runBrain(
   const response: BrainResponse = {
     message: text,
     conversationId,
+    requestId,
     reasoning: { intent: decision.intent, toolsUsed },
   };
   if (sources.length > 0) response.sources = sources;

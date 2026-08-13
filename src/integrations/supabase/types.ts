@@ -68,6 +68,7 @@ export type Database = {
           prompt_tokens: number
           provider: string
           rag_ms: number
+          request_id: string | null
           success: boolean
           tools_used: string[]
           user_id: string
@@ -86,6 +87,7 @@ export type Database = {
           prompt_tokens?: number
           provider: string
           rag_ms?: number
+          request_id?: string | null
           success?: boolean
           tools_used?: string[]
           user_id: string
@@ -104,6 +106,7 @@ export type Database = {
           prompt_tokens?: number
           provider?: string
           rag_ms?: number
+          request_id?: string | null
           success?: boolean
           tools_used?: string[]
           user_id?: string
@@ -155,6 +158,7 @@ export type Database = {
           created_at: string
           id: string
           metadata: Json
+          request_id: string | null
           resource: string | null
           user_id: string | null
         }
@@ -163,6 +167,7 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json
+          request_id?: string | null
           resource?: string | null
           user_id?: string | null
         }
@@ -171,6 +176,7 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json
+          request_id?: string | null
           resource?: string | null
           user_id?: string | null
         }
@@ -469,6 +475,7 @@ export type Database = {
           duration_ms: number
           error: string | null
           id: string
+          request_id: string | null
           success: boolean
           tool_slug: string
           user_id: string
@@ -480,6 +487,7 @@ export type Database = {
           duration_ms?: number
           error?: string | null
           id?: string
+          request_id?: string | null
           success?: boolean
           tool_slug: string
           user_id: string
@@ -491,6 +499,7 @@ export type Database = {
           duration_ms?: number
           error?: string | null
           id?: string
+          request_id?: string | null
           success?: boolean
           tool_slug?: string
           user_id?: string

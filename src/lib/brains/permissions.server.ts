@@ -74,7 +74,7 @@ export async function isAdmin(db: Db, userId: string): Promise<boolean> {
 
 export async function auditLog(
   db: Db,
-  entry: { userId: string; action: string; resource?: string; metadata?: Record<string, unknown> },
+  entry: { userId: string; action: string; resource?: string; requestId?: string; metadata?: Record<string, unknown> },
 ): Promise<void> {
   // Audit rows are written with the service client; failures must never break a request.
   try {
@@ -83,6 +83,7 @@ export async function auditLog(
       user_id: entry.userId,
       action: entry.action,
       resource: entry.resource ?? null,
+      request_id: entry.requestId ?? null,
       metadata: (entry.metadata ?? {}) as never,
     });
   } catch {
