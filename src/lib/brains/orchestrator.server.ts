@@ -78,7 +78,7 @@ export async function runBrain(
         db,
         toolId,
         { userId, application: request.application, query: request.message, queryEmbedding },
-        { conversationId },
+        { conversationId, requestId },
       );
       toolsUsed.push(toolId);
       if (outcome.ok) {
