@@ -3,6 +3,7 @@ import { assembleContext, renderContextBlock } from "./context.server";
 import type { Db } from "./db.server";
 import { classifyIntent } from "./intent.server";
 import { applyMemoryPolicy, rememberIfUseful } from "./memory.server";
+import { auditLog } from "./permissions.server";
 import { personaSystemPrompt } from "./personality.server";
 import { embedQuery } from "./rag.server";
 import { runTool } from "./tools.server";
@@ -157,6 +158,14 @@ export async function runBrain(
     estimated_cost: estimateCost(provider, promptTokens, completionTokens),
     success,
     error: errorMessage ?? null,
+  });
+
+  await auditLog(db, {
+    userId,
+    action: "brain.chat.turn",
+    resource: conversationId,
+    requestId,
+    metadata: { intent: decision.intent, tools_used: toolsUsed, model_id: modelId, success },
   });
 
   // Memory update — policy-gated and deduplicated.
