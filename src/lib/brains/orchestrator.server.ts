@@ -138,12 +138,13 @@ export async function runBrain(
     user_id: userId,
     role: "assistant",
     content: text,
-    metadata: { intent: decision.intent, tools_used: toolsUsed } as never,
+    metadata: { intent: decision.intent, tools_used: toolsUsed, request_id: requestId } as never,
   });
 
   await db.from("ai_requests").insert({
     user_id: userId,
     conversation_id: conversationId,
+    request_id: requestId,
     model_id: modelId,
     provider,
     intent: decision.intent,
@@ -168,6 +169,7 @@ export async function runBrain(
   const response: BrainResponse = {
     message: text,
     conversationId,
+    requestId,
     reasoning: { intent: decision.intent, toolsUsed },
   };
   if (sources.length > 0) response.sources = sources;

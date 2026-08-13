@@ -40,6 +40,8 @@ export interface BrainAction {
 export interface BrainResponse {
   message: string;
   conversationId: string;
+  /** Correlation ID grouping every audit event, tool run and model call for this turn. */
+  requestId: string;
   reasoning?: {
     intent: string;
     toolsUsed: string[];
