@@ -31,9 +31,13 @@ export async function runBrain(
   request: Omit<BrainRequest, "userId">,
 ): Promise<BrainResponse> {
   const startedAt = Date.now();
+  // Correlation ID: groups every audit event, tool execution and model request
+  // produced by this single chat turn.
+  const requestId = crypto.randomUUID();
   const decision = classifyIntent(request.message);
 
   const conversationId = await ensureConversation(db, userId, request);
+
 
   await db.from("messages").insert({
     conversation_id: conversationId,
