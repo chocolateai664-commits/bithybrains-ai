@@ -110,3 +110,41 @@ describe("user-owned data is not readable without a session", () => {
     });
   }
 });
+
+describe("telemetry tables are immutable, owner-scoped logs", () => {
+  const telemetry = ["tool_executions", "ai_requests"] as const;
+
+  for (const table of telemetry) {
+    it(`${table} exposes no rows without a session`, async () => {
+      expect(denied(await client.from(table).select("*").limit(5))).toBe(true);
+    });
+
+    it(`${table} rejects updates from client roles`, async () => {
+      const res = await client.from(table).update({ success: false }).eq("id", RANDOM_UUID).select();
+      expect(mutationDenied(res)).toBe(true);
+    });
+
+    it(`${table} rejects deletes from client roles`, async () => {
+      expect(mutationDenied(await client.from(table).delete().eq("id", RANDOM_UUID).select())).toBe(true);
+    });
+
+    it(`${table} rejects inserts attributed to another user`, async () => {
+      const res = await client.from(table).insert(
+        (table === "tool_executions"
+          ? { user_id: RANDOM_UUID, tool_slug: "rbac.test" }
+          : { user_id: RANDOM_UUID, model_id: "rbac.test", provider: "test" }) as never,
+      );
+      expect(res.error).toBeTruthy();
+    });
+  }
+
+  it("correlation IDs cannot be rewritten by client roles", async () => {
+    for (const table of telemetry) {
+      const res = await client.from(table).update({ request_id: RANDOM_UUID }).eq("id", RANDOM_UUID).select();
+      expect(mutationDenied(res), `${table} allowed request_id rewrite`).toBe(true);
+    }
+    expect(
+      mutationDenied(await client.from("audit_logs").update({ request_id: RANDOM_UUID }).eq("id", RANDOM_UUID).select()),
+    ).toBe(true);
+  });
+});

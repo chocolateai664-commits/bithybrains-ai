@@ -308,6 +308,7 @@ function AuditPanel() {
                 <span className="label-mono">{when(row.created_at)}</span>
               </div>
               <p className="label-mono mt-1 break-all">
+                {row.request_id ? `req ${row.request_id} · ` : ""}
                 {row.resource ? `${row.resource} · ` : ""}
                 {JSON.stringify(row.metadata)}
               </p>
@@ -325,7 +326,9 @@ function AuditPanel() {
             <div key={row.id} className="panel flex flex-wrap items-center justify-between gap-2 p-4">
               <span className="font-mono text-sm text-foreground">{row.tool_slug}</span>
               <span className="label-mono">
-                {row.success ? "ok" : `failed: ${row.error ?? "unknown"}`} · {row.duration_ms} ms · {when(row.created_at)}
+                {row.success ? "ok" : `failed: ${row.error ?? "unknown"}`} · {row.duration_ms} ms ·{" "}
+                {row.request_id ? `req ${row.request_id.slice(0, 8)} · ` : ""}
+                {when(row.created_at)}
               </span>
             </div>
           ))
@@ -344,7 +347,9 @@ function AuditPanel() {
               </span>
               <span className="label-mono">
                 {row.success ? "ok" : `failed: ${row.error ?? "unknown"}`}
-                {row.tools_used.length ? ` · ${row.tools_used.join(", ")}` : ""} · {when(row.created_at)}
+                {row.tools_used.length ? ` · ${row.tools_used.join(", ")}` : ""} ·{" "}
+                {row.request_id ? `req ${row.request_id.slice(0, 8)} · ` : ""}
+                {when(row.created_at)}
               </span>
             </div>
           ))

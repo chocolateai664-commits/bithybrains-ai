@@ -76,6 +76,17 @@ for (const write of [
   if (!error) failures.push(`Authorization regression: anon can insert into ${write.table}`);
 }
 
+for (const table of ["tool_executions", "ai_requests"] as const) {
+  const update = await anon.from(table).update({ success: false }).eq("id", "00000000-0000-4000-8000-000000000001").select();
+  if (!update.error && Array.isArray(update.data) && update.data.length > 0) {
+    failures.push(`Immutability regression: ${table} rows can be updated by client roles`);
+  }
+  const del = await anon.from(table).delete().eq("id", "00000000-0000-4000-8000-000000000001").select();
+  if (!del.error && Array.isArray(del.data) && del.data.length > 0) {
+    failures.push(`Immutability regression: ${table} rows can be deleted by client roles`);
+  }
+}
+
 const roleRpc = await anon.rpc("has_role", {
   _user_id: "00000000-0000-4000-8000-000000000001",
   _role: "admin",
