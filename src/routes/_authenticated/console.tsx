@@ -189,16 +189,65 @@ function Registry({
   );
 }
 
+const RANGES = [
+  { id: "1h", label: "Last hour", ms: 3600_000 },
+  { id: "24h", label: "Last 24h", ms: 24 * 3600_000 },
+  { id: "7d", label: "Last 7 days", ms: 7 * 24 * 3600_000 },
+  { id: "all", label: "All time", ms: 0 },
+] as const;
+
+function toCsv(rows: Array<Record<string, unknown>>): string {
+  if (rows.length === 0) return "";
+  const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
+  const cell = (value: unknown) => {
+    const text = value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+  return [headers.join(","), ...rows.map((r) => headers.map((h) => cell(r[h])).join(","))].join("\n");
+}
+
 function AuditPanel() {
   const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
+  const [requestId, setRequestId] = useState("");
+  const [range, setRange] = useState<(typeof RANGES)[number]["id"]>("24h");
+  const [query, setQuery] = useState<{ search?: string; requestId?: string; from?: string }>({});
   const eventsFn = useServerFn(listAuditEvents);
   const events = useQuery({
     queryKey: ["audit-events", query],
-    queryFn: () => eventsFn({ data: { limit: 100, ...(query ? { search: query } : {}) } }),
+    queryFn: () => eventsFn({ data: { limit: 200, ...query } }),
   });
 
   const when = (iso: string) => new Date(iso).toLocaleString();
+
+  const applyFilters = (nextRange = range) => {
+    const ms = RANGES.find((r) => r.id === nextRange)?.ms ?? 0;
+    const trimmedId = requestId.trim();
+    setQuery({
+      ...(search.trim() ? { search: search.trim() } : {}),
+      ...(trimmedId ? { requestId: trimmedId } : {}),
+      ...(ms ? { from: new Date(Date.now() - ms).toISOString() } : {}),
+    });
+  };
+
+  const exportCsv = () => {
+    const data = events.data;
+    if (!data) return;
+    const rows = [
+      ...data.auditLogs.map((r) => ({ kind: "audit", created_at: r.created_at, request_id: r.request_id, name: r.action, detail: r.resource, extra: r.metadata })),
+      ...data.toolExecutions.map((r) => ({ kind: "tool", created_at: r.created_at, request_id: r.request_id, name: r.tool_slug, detail: r.success ? "ok" : r.error, extra: { duration_ms: r.duration_ms, application: r.application } })),
+      ...data.aiRequests.map((r) => ({ kind: "model", created_at: r.created_at, request_id: r.request_id, name: r.model_id, detail: r.success ? "ok" : r.error, extra: { intent: r.intent, provider: r.provider, tools_used: r.tools_used } })),
+    ].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    if (rows.length === 0) {
+      toast.error("Nothing to export for these filters.");
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `bithy-audit-${new Date().toISOString().slice(0, 19)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -206,19 +255,44 @@ function AuditPanel() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filter by action, e.g. tool. or memory."
+          placeholder="Search action, tool or model"
           className="max-w-xs"
         />
-        <Button size="sm" onClick={() => setQuery(search.trim())}>
+        <Input
+          value={requestId}
+          onChange={(e) => setRequestId(e.target.value)}
+          placeholder="Correlation / request ID"
+          className="max-w-xs font-mono text-xs"
+        />
+        <div className="flex flex-wrap gap-1">
+          {RANGES.map((r) => (
+            <Button
+              key={r.id}
+              size="sm"
+              variant={range === r.id ? "default" : "outline"}
+              onClick={() => {
+                setRange(r.id);
+                applyFilters(r.id);
+              }}
+            >
+              {r.label}
+            </Button>
+          ))}
+        </div>
+        <Button size="sm" onClick={() => applyFilters()}>
           Filter
         </Button>
         <Button size="sm" variant="ghost" onClick={() => events.refetch()}>
           Refresh
         </Button>
+        <Button size="sm" variant="outline" onClick={exportCsv}>
+          Export CSV
+        </Button>
         {events.data ? (
           <Badge variant="outline">{events.data.scope === "all" ? "admin · all users" : "your activity only"}</Badge>
         ) : null}
       </div>
+
 
       <section className="space-y-2">
         <h3 className="label-mono">Audit log</h3>
