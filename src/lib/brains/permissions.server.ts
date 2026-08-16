@@ -2,7 +2,8 @@ import type { Db } from "./db.server";
 
 /**
  * Permission layer: User -> Application -> Tool -> Permission -> Action.
- * Tools never execute without passing through `authorizeTool`.
+ * Tools never execute without passing through `authorizeTool`, and every check
+ * runs server-side against the database registry — never against UI state.
  */
 
 export type PermissionKind = "read" | "write" | "admin";
@@ -19,6 +20,15 @@ export function kindOf(permission: string): PermissionKind {
   return "read";
 }
 
+/** Tools that only make sense in the context of a connected application. */
+export const APP_SCOPED_TOOLS = [
+  "getApplicationData",
+  "getDashboardStats",
+  "createTask",
+  "updateTask",
+  "analyzeData",
+];
+
 export interface AuthorizeInput {
   userId: string;
   isAdmin: boolean;
@@ -30,12 +40,32 @@ export interface AuthorizeInput {
 }
 
 export async function authorizeTool(db: Db, input: AuthorizeInput): Promise<PermissionDecision> {
-  const kinds = input.toolPermissions.map(kindOf);
+  if (!input.userId) {
+    return { allowed: false, requiresConfirmation: false, reason: "Authentication required" };
+  }
 
+  // 1. Registry check — the database is the source of truth for tool state,
+  //    permissions and destructiveness, not the in-code registry alone.
+  const { data: registered } = await db
+    .from("tools")
+    .select("slug, status, permissions, destructive")
+    .eq("slug", input.toolSlug)
+    .maybeSingle();
+
+  if (registered && registered.status !== "active") {
+    return { allowed: false, requiresConfirmation: false, reason: "Tool is disabled" };
+  }
+
+  const permissions = Array.from(new Set([...(registered?.permissions ?? []), ...input.toolPermissions]));
+  const destructive = registered?.destructive || input.destructive;
+  const kinds = permissions.map(kindOf);
+
+  // 2. Permission/action check.
   if (kinds.includes("admin") && !input.isAdmin) {
     return { allowed: false, requiresConfirmation: false, reason: "Administrative permission required" };
   }
 
+  // 3. Application scope check.
   if (input.application) {
     const { data: app } = await db
       .from("applications")
@@ -46,15 +76,19 @@ export async function authorizeTool(db: Db, input: AuthorizeInput): Promise<Perm
     if (!app || app.status !== "active") {
       return { allowed: false, requiresConfirmation: false, reason: "Application is not connected or inactive" };
     }
-    const appScoped = ["getApplicationData", "getDashboardStats", "createTask", "updateTask", "analyzeData"];
-    if (appScoped.includes(input.toolSlug) && !app.tools.includes(input.toolSlug)) {
+    if (APP_SCOPED_TOOLS.includes(input.toolSlug) && !app.tools.includes(input.toolSlug)) {
       return { allowed: false, requiresConfirmation: false, reason: "Tool is not enabled for this application" };
     }
-  } else if (["getApplicationData", "getDashboardStats", "createTask", "updateTask"].includes(input.toolSlug)) {
+    // A write/admin action must be explicitly granted by the application entry.
+    if (kinds.some((k) => k !== "read") && !app.tools.includes(input.toolSlug)) {
+      return { allowed: false, requiresConfirmation: false, reason: "Write action is not granted to this application" };
+    }
+  } else if (APP_SCOPED_TOOLS.includes(input.toolSlug)) {
     return { allowed: false, requiresConfirmation: false, reason: "No application context supplied" };
   }
 
-  if (input.destructive && !input.confirmed) {
+  // 4. Destructive actions require explicit confirmation.
+  if (destructive && !input.confirmed) {
     return { allowed: false, requiresConfirmation: true, reason: "Explicit confirmation required" };
   }
 
