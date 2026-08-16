@@ -1,4 +1,6 @@
+import { CONTEXT_LIMITS } from "./config.server";
 import type { Db } from "./db.server";
+
 import { loadPersonality } from "./personality.server";
 import { searchMemories } from "./memory.server";
 import { searchKnowledge } from "./rag.server";
@@ -84,23 +86,51 @@ export async function assembleContext(db: Db, input: ContextInput): Promise<Cont
   return { context, memoryMs, ragMs };
 }
 
+/** Neutralises delimiter spoofing inside retrieved (untrusted) content. */
+function sanitizeRetrieved(text: string, max: number): string {
+  return text
+    .replace(/<\/?untrusted[^>]*>/gi, "[redacted-tag]")
+    .replace(/\bsystem\s*:/gi, "system-")
+    .slice(0, max)
+    .trim();
+}
+
 export function renderContextBlock(context: BrainContext): string {
   const parts: string[] = [];
   if (context.application) parts.push(`Active application: ${context.application}`);
   if (context.page) parts.push(`Current page: ${context.page}`);
   if (Object.keys(context.clientContext).length > 0) {
-    parts.push(`Client context: ${JSON.stringify(context.clientContext).slice(0, 1000)}`);
+    parts.push(
+      `Client context: ${sanitizeRetrieved(JSON.stringify(context.clientContext), CONTEXT_LIMITS.maxClientContextChars)}`,
+    );
   }
-  if (context.summary) parts.push(`Conversation summary: ${context.summary}`);
+  if (context.summary) {
+    parts.push(`Conversation summary: ${sanitizeRetrieved(context.summary, 2000)}`);
+  }
+
+  // Everything below is untrusted retrieved data. It is explicitly framed so the
+  // model treats it as reference material, never as instructions.
   if (context.relevantMemories.length > 0) {
-    parts.push(`Known about this user:\n${context.relevantMemories.map((m) => `- ${m.content}`).join("\n")}`);
+    parts.push(
+      `<untrusted-memory>\n${context.relevantMemories
+        .map((m) => `- ${sanitizeRetrieved(m.content, 600)}`)
+        .join("\n")}\n</untrusted-memory>`,
+    );
   }
   if (context.relevantDocuments.length > 0) {
     parts.push(
-      `Knowledge excerpts:\n${context.relevantDocuments
-        .map((d) => `- [${d.title}] ${d.content.slice(0, 800)}`)
-        .join("\n")}`,
+      `<untrusted-knowledge>\n${context.relevantDocuments
+        .map(
+          (d) =>
+            `- [source: ${sanitizeRetrieved(d.title, 120)} | id: ${d.id}] ${sanitizeRetrieved(
+              d.content,
+              CONTEXT_LIMITS.maxDocumentExcerptChars,
+            )}`,
+        )
+        .join("\n")}\n</untrusted-knowledge>`,
     );
   }
-  return parts.join("\n\n");
+
+  return parts.join("\n\n").slice(0, CONTEXT_LIMITS.maxContextBlockChars);
 }
+

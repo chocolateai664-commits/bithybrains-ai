@@ -1,8 +1,12 @@
+import { CONTEXT_LIMITS } from "./config.server";
 import type { Db } from "./db.server";
 import { searchMemories } from "./memory.server";
+import { OutboundUrlError, safeFetch } from "./net.server";
 import { searchKnowledge } from "./rag.server";
 import { authorizeTool, isAdmin } from "./permissions.server";
+import { enforceToolRateLimit } from "./ratelimit.server";
 import type { BithyTool, ToolContext, ToolResult } from "./types";
+
 
 /**
  * Tool registry. Tools are declarative, permission-scoped and executed by the
@@ -83,6 +87,7 @@ function makeRegistry(db: Db): Record<string, BithyTool> {
           .eq("slug", ctx.application ?? "")
           .maybeSingle();
         if (!app) return { ok: false, summary: "", error: "Application not found in the registry" };
+        if (app.status !== "active") return { ok: false, summary: "", error: `${app.name} is not active` };
         if (!app.api_endpoint) {
           return {
             ok: false,
@@ -91,14 +96,28 @@ function makeRegistry(db: Db): Record<string, BithyTool> {
           };
         }
         try {
-          const res = await fetch(app.api_endpoint, { headers: { accept: "application/json" } });
-          if (!res.ok) return { ok: false, summary: "", error: `${app.name} returned status ${res.status}` };
-          const payload = await res.json();
-          return { ok: true, summary: JSON.stringify(payload).slice(0, 4000), data: payload };
-        } catch {
+          // SSRF-guarded: validates scheme/host, blocks private ranges, caps
+          // redirects, time and response size. Never call fetch() directly here.
+          const res = await safeFetch(app.api_endpoint, { headers: { accept: "application/json" } });
+          if (res.status < 200 || res.status >= 300) {
+            return { ok: false, summary: "", error: `${app.name} returned status ${res.status}` };
+          }
+          let payload: unknown;
+          try {
+            payload = JSON.parse(res.body);
+          } catch {
+            return { ok: false, summary: "", error: `${app.name} returned a non-JSON response` };
+          }
+          return { ok: true, summary: JSON.stringify(payload).slice(0, CONTEXT_LIMITS.maxToolSummaryChars), data: payload };
+        } catch (error) {
+          if (error instanceof OutboundUrlError) {
+            // Safe to surface: describes policy, never the internal response.
+            return { ok: false, summary: "", error: `${app.name} endpoint rejected by connector policy: ${error.message}` };
+          }
           return { ok: false, summary: "", error: `${app.name} could not be reached` };
         }
       },
+
     },
     {
       id: "analyzeData",
@@ -137,6 +156,21 @@ export async function runTool(
   if (!tool) {
     return { toolId, ok: false, summary: "", error: "Unknown tool", durationMs: 0 };
   }
+
+  const budget = await enforceToolRateLimit(ctx.userId);
+  if (!budget.allowed) {
+    const throttled: ToolRunOutcome = {
+      toolId,
+      ok: false,
+      summary: "",
+      error: "Tool execution rate limit exceeded",
+      durationMs: Date.now() - started,
+    };
+    await logExecution(db, ctx.userId, tool.id, ctx.application, options.conversationId, options.requestId, throttled);
+    return throttled;
+  }
+
+
 
   const decision = await authorizeTool(db, {
     userId: ctx.userId,

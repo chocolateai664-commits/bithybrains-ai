@@ -35,7 +35,11 @@ export async function authenticateRequest(
   return { db, userId: data.user.id };
 }
 
-/** Coarse in-process rate limit — protects against runaway clients per worker. */
+/**
+ * Deprecated: process-local rate limiting.
+ * Use `enforceChatRateLimit` / `enforceToolRateLimit` from `./ratelimit.server`,
+ * which keep counters in Postgres so limits hold across worker instances.
+ */
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
 export function rateLimit(key: string, limit = 30, windowMs = 60_000): boolean {
@@ -49,3 +53,4 @@ export function rateLimit(key: string, limit = 30, windowMs = 60_000): boolean {
   bucket.count += 1;
   return true;
 }
+
