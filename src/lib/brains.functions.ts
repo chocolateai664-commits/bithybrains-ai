@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { toCsv } from "@/lib/brains/csv";
+import { redactApplications } from "@/lib/brains/redact";
 import { z } from "zod";
+
 
 /** Typed RPC surface used by the Bithy Brains control center UI. */
 
@@ -70,7 +73,9 @@ export const getBrainOverview = createServerFn({ method: "GET" })
         embeddings: (chunks.count ?? 0) + (memories.count ?? 0),
         conversations: conversations.count ?? 0,
       },
-      applications: apps.data ?? [],
+      // Connector endpoints are admin-only operational configuration.
+      applications: redactApplications(apps.data ?? [], !!admin.data),
+
       tools: (tools.data ?? []).map((t) => {
         const stat = toolStats.get(t.slug);
         return {
