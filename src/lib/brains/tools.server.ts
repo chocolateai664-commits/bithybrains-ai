@@ -157,6 +157,21 @@ export async function runTool(
     return { toolId, ok: false, summary: "", error: "Unknown tool", durationMs: 0 };
   }
 
+  const budget = await enforceToolRateLimit(ctx.userId);
+  if (!budget.allowed) {
+    const throttled: ToolRunOutcome = {
+      toolId,
+      ok: false,
+      summary: "",
+      error: "Tool execution rate limit exceeded",
+      durationMs: Date.now() - started,
+    };
+    await logExecution(db, ctx.userId, tool.id, ctx.application, options.conversationId, options.requestId, throttled);
+    return throttled;
+  }
+
+
+
   const decision = await authorizeTool(db, {
     userId: ctx.userId,
     isAdmin: await isAdmin(db, ctx.userId),
