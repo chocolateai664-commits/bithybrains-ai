@@ -155,6 +155,7 @@ export type Database = {
       audit_logs: {
         Row: {
           action: string
+          application: string | null
           created_at: string
           id: string
           metadata: Json
@@ -164,6 +165,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          application?: string | null
           created_at?: string
           id?: string
           metadata?: Json
@@ -173,12 +175,88 @@ export type Database = {
         }
         Update: {
           action?: string
+          application?: string | null
           created_at?: string
           id?: string
           metadata?: Json
           request_id?: string | null
           resource?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      container_reports: {
+        Row: {
+          carrier: string | null
+          confidence: number
+          container_number: string
+          created_at: string
+          current_location: string | null
+          destination: string | null
+          estimated_arrival: string | null
+          id: string
+          last_event: string | null
+          last_event_date: string | null
+          origin: string | null
+          raw_json: Json
+          report_id: string
+          request_id: string | null
+          source_timestamp: string | null
+          source_url: string | null
+          status: string
+          tracking_source: string | null
+          user_id: string
+          verified: boolean
+          vessel: string | null
+          voyage: string | null
+        }
+        Insert: {
+          carrier?: string | null
+          confidence?: number
+          container_number: string
+          created_at?: string
+          current_location?: string | null
+          destination?: string | null
+          estimated_arrival?: string | null
+          id?: string
+          last_event?: string | null
+          last_event_date?: string | null
+          origin?: string | null
+          raw_json?: Json
+          report_id: string
+          request_id?: string | null
+          source_timestamp?: string | null
+          source_url?: string | null
+          status: string
+          tracking_source?: string | null
+          user_id: string
+          verified?: boolean
+          vessel?: string | null
+          voyage?: string | null
+        }
+        Update: {
+          carrier?: string | null
+          confidence?: number
+          container_number?: string
+          created_at?: string
+          current_location?: string | null
+          destination?: string | null
+          estimated_arrival?: string | null
+          id?: string
+          last_event?: string | null
+          last_event_date?: string | null
+          origin?: string | null
+          raw_json?: Json
+          report_id?: string
+          request_id?: string | null
+          source_timestamp?: string | null
+          source_url?: string | null
+          status?: string
+          tracking_source?: string | null
+          user_id?: string
+          verified?: boolean
+          vessel?: string | null
+          voyage?: string | null
         }
         Relationships: []
       }
@@ -410,6 +488,48 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          credits_purchased: number
+          currency: string
+          id: string
+          plan_code: string | null
+          provider: string
+          reference: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          credits_purchased?: number
+          currency?: string
+          id?: string
+          plan_code?: string | null
+          provider?: string
+          reference: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credits_purchased?: number
+          currency?: string
+          id?: string
+          plan_code?: string | null
+          provider?: string
+          reference?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       personality_settings: {
         Row: {
           assistant_name: string
@@ -440,6 +560,51 @@ export type Database = {
           tone?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      pricing_plans: {
+        Row: {
+          amount: number
+          application: string
+          code: string
+          created_at: string
+          credits: number
+          currency: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          application: string
+          code: string
+          created_at?: string
+          credits: number
+          currency?: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          application?: string
+          code?: string
+          created_at?: string
+          credits?: number
+          currency?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -569,6 +734,105 @@ export type Database = {
         }
         Relationships: []
       }
+      tracking_cache: {
+        Row: {
+          cached_at: string
+          container_number: string
+          expires_at: string
+          id: string
+          payload: Json
+          retrieved_at: string
+          source_timestamp: string | null
+        }
+        Insert: {
+          cached_at?: string
+          container_number: string
+          expires_at: string
+          id?: string
+          payload: Json
+          retrieved_at?: string
+          source_timestamp?: string | null
+        }
+        Update: {
+          cached_at?: string
+          container_number?: string
+          expires_at?: string
+          id?: string
+          payload?: Json
+          retrieved_at?: string
+          source_timestamp?: string | null
+        }
+        Relationships: []
+      }
+      tracking_requests: {
+        Row: {
+          completed_at: string | null
+          container_number: string
+          created_at: string
+          error_message: string | null
+          id: string
+          report_id: string | null
+          request_id: string | null
+          started_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          container_number: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          report_id?: string | null
+          request_id?: string | null
+          started_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          container_number?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          report_id?: string | null
+          request_id?: string | null
+          started_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_credits: {
+        Row: {
+          created_at: string
+          free_credits: number
+          id: string
+          paid_credits: number
+          total_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          free_credits?: number
+          id?: string
+          paid_credits?: number
+          total_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          free_credits?: number
+          id?: string
+          paid_credits?: number
+          total_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -595,6 +859,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_payment_credits: {
+        Args: {
+          _amount: number
+          _credits: number
+          _currency: string
+          _plan_code: string
+          _provider: string
+          _reference: string
+          _user_id: string
+        }
+        Returns: {
+          applied: boolean
+          paid_credits: number
+        }[]
+      }
       consume_rate_limit: {
         Args: { _bucket_key: string; _limit: number; _window_seconds: number }
         Returns: {
@@ -602,6 +881,33 @@ export type Database = {
           remaining: number
           reset_at: string
         }[]
+      }
+      consume_tracking_credit: {
+        Args: { _user_id: string }
+        Returns: {
+          consumed: boolean
+          free_credits: number
+          paid_credits: number
+          total_used: number
+        }[]
+      }
+      ensure_user_credits: {
+        Args: { _user_id: string }
+        Returns: {
+          created_at: string
+          free_credits: number
+          id: string
+          paid_credits: number
+          total_used: number
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "usage_credits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       has_role: {
         Args: {
