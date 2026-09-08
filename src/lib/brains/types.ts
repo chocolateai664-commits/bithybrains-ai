@@ -15,6 +15,7 @@ export type BithyIntent =
   | "document_analysis"
   | "task_creation"
   | "technical_help"
+  | "container_tracking"
   | "general_assistance";
 
 export interface BrainRequest {
@@ -94,6 +95,8 @@ export interface ToolContext {
   application?: string | undefined;
   query: string;
   queryEmbedding?: number[] | undefined;
+  /** Structured tool arguments supplied by the calling application layer. */
+  params?: Record<string, unknown> | undefined;
 }
 
 export interface ToolResult {
