@@ -29,6 +29,14 @@ const STATIC_CATALOG: ModelCandidate[] = [
     priority: 10,
     contextSize: null,
   },
+  {
+    modelId: "google/gemini-3.7-flash",
+    provider: "google",
+    tasks: ["container_tracking"],
+    costTier: "standard",
+    priority: 5,
+    contextSize: null,
+  },
   { modelId: "google/gemini-3.5-flash", provider: "google", tasks: "*", costTier: "standard", priority: 20, contextSize: null },
 ];
 
