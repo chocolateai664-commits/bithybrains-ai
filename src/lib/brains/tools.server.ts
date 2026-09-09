@@ -1,3 +1,4 @@
+import { applicationTools } from "@/applications/registry.server";
 import { CONTEXT_LIMITS } from "./config.server";
 import type { Db } from "./db.server";
 import { searchMemories } from "./memory.server";
@@ -133,7 +134,10 @@ function makeRegistry(db: Db): Record<string, BithyTool> {
     },
   ];
 
-  return Object.fromEntries(tools.map((t) => [t.id, t]));
+  // Applications contribute their own tools; the core registry stays
+  // application-agnostic and reuses the same permission/audit/rate-limit path.
+  const all = [...tools, ...applicationTools()];
+  return Object.fromEntries(all.map((t) => [t.id, t]));
 }
 
 export function listToolIds(db: Db): string[] {
