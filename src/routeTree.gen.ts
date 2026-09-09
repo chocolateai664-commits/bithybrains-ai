@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedConsoleRouteImport } from './routes/_authenticated/console'
 import { Route as ApiPublicBithyChatRouteImport } from './routes/api/public/bithy/chat'
+import { Route as ApiPublicPaymentsPaystackWebhookRouteImport } from './routes/api/public/payments/paystack-webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -39,18 +40,26 @@ const ApiPublicBithyChatRoute = ApiPublicBithyChatRouteImport.update({
   path: '/api/public/bithy/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPaymentsPaystackWebhookRoute =
+  ApiPublicPaymentsPaystackWebhookRouteImport.update({
+    id: '/api/public/payments/paystack-webhook',
+    path: '/api/public/payments/paystack-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/console': typeof AuthenticatedConsoleRoute
   '/api/public/bithy/chat': typeof ApiPublicBithyChatRoute
+  '/api/public/payments/paystack-webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/console': typeof AuthenticatedConsoleRoute
   '/api/public/bithy/chat': typeof ApiPublicBithyChatRoute
+  '/api/public/payments/paystack-webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -59,12 +68,23 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/console': typeof AuthenticatedConsoleRoute
   '/api/public/bithy/chat': typeof ApiPublicBithyChatRoute
+  '/api/public/payments/paystack-webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/console' | '/api/public/bithy/chat'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/console'
+    | '/api/public/bithy/chat'
+    | '/api/public/payments/paystack-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/console' | '/api/public/bithy/chat'
+  to:
+    | '/'
+    | '/auth'
+    | '/console'
+    | '/api/public/bithy/chat'
+    | '/api/public/payments/paystack-webhook'
   id:
     | '__root__'
     | '/'
@@ -72,6 +92,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/console'
     | '/api/public/bithy/chat'
+    | '/api/public/payments/paystack-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -79,6 +100,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicBithyChatRoute: typeof ApiPublicBithyChatRoute
+  ApiPublicPaymentsPaystackWebhookRoute: typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -118,6 +140,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBithyChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/payments/paystack-webhook': {
+      id: '/api/public/payments/paystack-webhook'
+      path: '/api/public/payments/paystack-webhook'
+      fullPath: '/api/public/payments/paystack-webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsPaystackWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -137,6 +166,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicBithyChatRoute: ApiPublicBithyChatRoute,
+  ApiPublicPaymentsPaystackWebhookRoute: ApiPublicPaymentsPaystackWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
