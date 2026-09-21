@@ -59,6 +59,9 @@ function Landing() {
               BITHY&nbsp;BRAINS
             </span>
           </div>
+          <Button asChild size="sm" variant="ghost">
+            <Link to={signedIn ? "/containertrack" : "/auth"}>ContainerTrack</Link>
+          </Button>
           <Button asChild size="sm" variant="secondary">
             <Link to={signedIn ? "/console" : "/auth"}>{signedIn ? "Open console" : "Sign in"}</Link>
           </Button>

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -54,9 +54,14 @@ function Console() {
             <p className="label-mono">Control center</p>
             <h1 className="text-2xl font-semibold tracking-tight">Bithy Brains</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={signOut}>
-            Sign out
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/containertrack">ContainerTrack</Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={signOut}>
+              Sign out
+            </Button>
+          </div>
         </header>
 
         <Tabs defaultValue="overview" className="mt-8">
