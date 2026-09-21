@@ -190,7 +190,7 @@ export async function runTracking(input: TrackingInput): Promise<TrackingOutcome
   let sources: TrackingSource[] = [];
   let fromCache = false;
   if (cached.data) {
-    sources = [cached.data.payload as TrackingSource].filter(Boolean);
+    sources = [cached.data.payload as unknown as TrackingSource].filter(Boolean);
     fromCache = sources.length > 0;
   }
 

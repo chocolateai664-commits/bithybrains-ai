@@ -108,7 +108,7 @@ export function validateContainerNumber(input: string): Iso6346Result {
       categoryIdentifier,
       serial,
       checkDigit,
-      expectedCheckDigit: Number.isNaN(expected) ? undefined : expected,
+      ...(Number.isNaN(expected) ? {} : { expectedCheckDigit: expected }),
       reason: "check_digit",
       message: "The check digit does not match the container number.",
     };
