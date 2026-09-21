@@ -32,8 +32,8 @@ export interface Iso6346Result {
   ownerCode?: string;
   categoryIdentifier?: string;
   serial?: string;
-  checkDigit?: number;
-  expectedCheckDigit?: number;
+  checkDigit?: number | undefined;
+  expectedCheckDigit?: number | undefined;
   reason?: Iso6346Reason;
   message?: string;
 }
