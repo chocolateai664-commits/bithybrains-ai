@@ -177,3 +177,40 @@
   text-transform: uppercase;
   color: var(--muted-foreground);
 }
+
+/* ---- ContainerTrack printable tracking document (A4) ---- */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .print\:hidden,
+  nav,
+  header button {
+    display: none !important;
+  }
+
+  .tracking-card {
+    max-width: none !important;
+    width: 100% !important;
+    border: 1px solid #333 !important;
+    box-shadow: none !important;
+    padding: 10mm !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  .tracking-card img {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
