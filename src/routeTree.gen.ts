@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedConsoleRouteImport } from './routes/_authenticated/console'
+import { Route as AuthenticatedContainertrackRouteImport } from './routes/_authenticated/containertrack'
+import { Route as VerifyReportIdRouteImport } from './routes/verify.$reportId'
 import { Route as ApiPublicBithyChatRouteImport } from './routes/api/public/bithy/chat'
 import { Route as ApiPublicPaymentsPaystackWebhookRouteImport } from './routes/api/public/payments/paystack-webhook'
 
@@ -35,6 +37,17 @@ const AuthenticatedConsoleRoute = AuthenticatedConsoleRouteImport.update({
   path: '/console',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedContainertrackRoute =
+  AuthenticatedContainertrackRouteImport.update({
+    id: '/containertrack',
+    path: '/containertrack',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const VerifyReportIdRoute = VerifyReportIdRouteImport.update({
+  id: '/verify/$reportId',
+  path: '/verify/$reportId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBithyChatRoute = ApiPublicBithyChatRouteImport.update({
   id: '/api/public/bithy/chat',
   path: '/api/public/bithy/chat',
@@ -51,6 +64,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/console': typeof AuthenticatedConsoleRoute
+  '/containertrack': typeof AuthenticatedContainertrackRoute
+  '/verify/$reportId': typeof VerifyReportIdRoute
   '/api/public/bithy/chat': typeof ApiPublicBithyChatRoute
   '/api/public/payments/paystack-webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
@@ -58,6 +73,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/console': typeof AuthenticatedConsoleRoute
+  '/containertrack': typeof AuthenticatedContainertrackRoute
+  '/verify/$reportId': typeof VerifyReportIdRoute
   '/api/public/bithy/chat': typeof ApiPublicBithyChatRoute
   '/api/public/payments/paystack-webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
@@ -67,6 +84,8 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/console': typeof AuthenticatedConsoleRoute
+  '/_authenticated/containertrack': typeof AuthenticatedContainertrackRoute
+  '/verify/$reportId': typeof VerifyReportIdRoute
   '/api/public/bithy/chat': typeof ApiPublicBithyChatRoute
   '/api/public/payments/paystack-webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
@@ -76,6 +95,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/console'
+    | '/containertrack'
+    | '/verify/$reportId'
     | '/api/public/bithy/chat'
     | '/api/public/payments/paystack-webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -83,6 +104,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/console'
+    | '/containertrack'
+    | '/verify/$reportId'
     | '/api/public/bithy/chat'
     | '/api/public/payments/paystack-webhook'
   id:
@@ -91,6 +114,8 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/console'
+    | '/_authenticated/containertrack'
+    | '/verify/$reportId'
     | '/api/public/bithy/chat'
     | '/api/public/payments/paystack-webhook'
   fileRoutesById: FileRoutesById
@@ -99,6 +124,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  VerifyReportIdRoute: typeof VerifyReportIdRoute
   ApiPublicBithyChatRoute: typeof ApiPublicBithyChatRoute
   ApiPublicPaymentsPaystackWebhookRoute: typeof ApiPublicPaymentsPaystackWebhookRoute
 }
@@ -133,6 +159,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConsoleRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/containertrack': {
+      id: '/_authenticated/containertrack'
+      path: '/containertrack'
+      fullPath: '/containertrack'
+      preLoaderRoute: typeof AuthenticatedContainertrackRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/verify/$reportId': {
+      id: '/verify/$reportId'
+      path: '/verify/$reportId'
+      fullPath: '/verify/$reportId'
+      preLoaderRoute: typeof VerifyReportIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/bithy/chat': {
       id: '/api/public/bithy/chat'
       path: '/api/public/bithy/chat'
@@ -152,10 +192,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedConsoleRoute: typeof AuthenticatedConsoleRoute
+  AuthenticatedContainertrackRoute: typeof AuthenticatedContainertrackRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConsoleRoute: AuthenticatedConsoleRoute,
+  AuthenticatedContainertrackRoute: AuthenticatedContainertrackRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -165,6 +207,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  VerifyReportIdRoute: VerifyReportIdRoute,
   ApiPublicBithyChatRoute: ApiPublicBithyChatRoute,
   ApiPublicPaymentsPaystackWebhookRoute: ApiPublicPaymentsPaystackWebhookRoute,
 }
