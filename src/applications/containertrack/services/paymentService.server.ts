@@ -155,7 +155,7 @@ export async function applyPaymentCredits(input: {
     _credits: input.credits,
     _amount: input.amount,
     _currency: input.currency,
-    _plan_code: input.planCode,
+    _plan_code: input.planCode ?? "",
   });
   if (error) throw new Error(error.message);
   const row = (Array.isArray(data) ? data[0] : data) as { applied: boolean; paid_credits: number } | null;
