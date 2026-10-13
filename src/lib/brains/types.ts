@@ -30,7 +30,15 @@ export interface BrainRequest {
 export interface BrainSource {
   id: string;
   title: string;
+  /** Retrieval ranking signal only — not evidence that a claim is true. */
   relevance: number;
+  /** Additive citation metadata (present for knowledge-base evidence). */
+  label?: string;
+  documentId?: string;
+  page?: number | null;
+  section?: string | null;
+  url?: string | null;
+  cited?: boolean;
 }
 
 export interface BrainAction {
@@ -65,6 +73,10 @@ export interface RetrievedChunk {
   title: string;
   content: string;
   similarity: number;
+  page_number?: number | null;
+  section?: string | null;
+  source_url?: string | null;
+  keyword_match?: boolean;
 }
 
 export interface BrainContext {

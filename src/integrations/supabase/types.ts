@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -55,6 +55,8 @@ export type Database = {
       }
       ai_requests: {
         Row: {
+          citations_invalid: number | null
+          citations_valid: number | null
           completion_tokens: number
           conversation_id: string | null
           created_at: string
@@ -67,13 +69,17 @@ export type Database = {
           model_id: string
           prompt_tokens: number
           provider: string
+          rag_candidates: number | null
           rag_ms: number
+          rag_selected: number | null
           request_id: string | null
           success: boolean
           tools_used: string[]
           user_id: string
         }
         Insert: {
+          citations_invalid?: number | null
+          citations_valid?: number | null
           completion_tokens?: number
           conversation_id?: string | null
           created_at?: string
@@ -86,13 +92,17 @@ export type Database = {
           model_id: string
           prompt_tokens?: number
           provider: string
+          rag_candidates?: number | null
           rag_ms?: number
+          rag_selected?: number | null
           request_id?: string | null
           success?: boolean
           tools_used?: string[]
           user_id: string
         }
         Update: {
+          citations_invalid?: number | null
+          citations_valid?: number | null
           completion_tokens?: number
           conversation_id?: string | null
           created_at?: string
@@ -105,7 +115,9 @@ export type Database = {
           model_id?: string
           prompt_tokens?: number
           provider?: string
+          rag_candidates?: number | null
           rag_ms?: number
+          rag_selected?: number | null
           request_id?: string | null
           success?: boolean
           tools_used?: string[]
@@ -334,6 +346,9 @@ export type Database = {
           document_id: string
           embedding: string | null
           id: string
+          page_number: number | null
+          section: string | null
+          tsv: unknown
           user_id: string
         }
         Insert: {
@@ -344,6 +359,9 @@ export type Database = {
           document_id: string
           embedding?: string | null
           id?: string
+          page_number?: number | null
+          section?: string | null
+          tsv?: unknown
           user_id: string
         }
         Update: {
@@ -354,6 +372,9 @@ export type Database = {
           document_id?: string
           embedding?: string | null
           id?: string
+          page_number?: number | null
+          section?: string | null
+          tsv?: unknown
           user_id?: string
         }
         Relationships: [
@@ -369,11 +390,17 @@ export type Database = {
       documents: {
         Row: {
           application: string | null
+          attempts: number
+          byte_size: number | null
           chunk_count: number
+          content_hash: string | null
           created_at: string
           error: string | null
           file_type: string | null
           id: string
+          page_count: number | null
+          source_filename: string | null
+          source_url: string | null
           status: string
           title: string
           updated_at: string
@@ -381,11 +408,17 @@ export type Database = {
         }
         Insert: {
           application?: string | null
+          attempts?: number
+          byte_size?: number | null
           chunk_count?: number
+          content_hash?: string | null
           created_at?: string
           error?: string | null
           file_type?: string | null
           id?: string
+          page_count?: number | null
+          source_filename?: string | null
+          source_url?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -393,11 +426,17 @@ export type Database = {
         }
         Update: {
           application?: string | null
+          attempts?: number
+          byte_size?: number | null
           chunk_count?: number
+          content_hash?: string | null
           created_at?: string
           error?: string | null
           file_type?: string | null
           id?: string
+          page_count?: number | null
+          source_filename?: string | null
+          source_url?: string | null
           status?: string
           title?: string
           updated_at?: string
@@ -928,6 +967,26 @@ export type Database = {
           document_id: string
           id: string
           similarity: number
+          title: string
+        }[]
+      }
+      match_document_chunks_hybrid: {
+        Args: {
+          filter_application?: string
+          match_count?: number
+          match_user_id: string
+          query_embedding: string
+          query_text: string
+        }
+        Returns: {
+          content: string
+          document_id: string
+          id: string
+          keyword_rank: number
+          page_number: number
+          section: string
+          similarity: number
+          source_url: string
           title: string
         }[]
       }

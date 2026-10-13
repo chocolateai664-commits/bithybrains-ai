@@ -3,7 +3,8 @@ import type { Db } from "./db.server";
 
 import { loadPersonality } from "./personality.server";
 import { searchMemories } from "./memory.server";
-import { searchKnowledge } from "./rag.server";
+import { retrieveEvidence } from "./rag.server";
+import { buildRetrievalQuery, sourceLocator } from "./knowledge";
 import type { BrainContext, RetrievedChunk, RetrievedMemory } from "./types";
 
 /**
@@ -29,6 +30,8 @@ export interface ContextResult {
   context: BrainContext;
   memoryMs: number;
   ragMs: number;
+  ragCandidates: number;
+  ragError?: string | undefined;
 }
 
 export async function assembleContext(db: Db, input: ContextInput): Promise<ContextResult> {
@@ -60,13 +63,21 @@ export async function assembleContext(db: Db, input: ContextInput): Promise<Cont
 
   let relevantDocuments: RetrievedChunk[] = [];
   let ragMs = 0;
+  let ragCandidates = 0;
+  let ragError: string | undefined;
   if (input.needsRag && input.queryEmbedding) {
-    const t = Date.now();
-    relevantDocuments = await searchKnowledge(db, input.userId, input.queryEmbedding, {
-      limit: 4,
+    const recentRows = recent.data ?? [];
+    // recentRows is newest-first and already includes the current user turn.
+    const previousUser = recentRows.filter((m) => m.role === "user").map((m) => m.content)[1];
+    const result = await retrieveEvidence(db, input.userId, {
+      query: buildRetrievalQuery(input.message, previousUser),
+      embedding: input.queryEmbedding,
       application: input.application,
-    }).catch(() => []);
-    ragMs = Date.now() - t;
+    });
+    relevantDocuments = result.evidence;
+    ragMs = result.latencyMs;
+    ragCandidates = result.candidates;
+    ragError = result.error;
   }
 
   const context: BrainContext = {
@@ -79,11 +90,11 @@ export async function assembleContext(db: Db, input: ContextInput): Promise<Cont
     recentMessages: (recent.data ?? []).slice().reverse(),
     summary: summaryRow.data?.summary,
     relevantMemories: relevantMemories.filter((m) => m.similarity > 0.55),
-    relevantDocuments: relevantDocuments.filter((d) => d.similarity > 0.55),
+    relevantDocuments,
     personality,
   };
 
-  return { context, memoryMs, ragMs };
+  return { context, memoryMs, ragMs, ragCandidates, ragError };
 }
 
 /** Neutralises delimiter spoofing inside retrieved (untrusted) content. */
@@ -112,17 +123,21 @@ export function renderContextBlock(context: BrainContext): string {
   // model treats it as reference material, never as instructions.
   if (context.relevantMemories.length > 0) {
     parts.push(
-      `<untrusted-memory>\n${context.relevantMemories
+      `Long-term user memory (personalization only; current user instructions take precedence):\n<untrusted-memory>\n${context.relevantMemories
         .map((m) => `- ${sanitizeRetrieved(m.content, 600)}`)
         .join("\n")}\n</untrusted-memory>`,
     );
   }
   if (context.relevantDocuments.length > 0) {
     parts.push(
-      `<untrusted-knowledge>\n${context.relevantDocuments
+      `Knowledge-base evidence (cite as [S#]):\n<untrusted-knowledge>\n${context.relevantDocuments
         .map(
-          (d) =>
-            `- [source: ${sanitizeRetrieved(d.title, 120)} | id: ${d.id}] ${sanitizeRetrieved(
+          (d, i) =>
+            `[S${i + 1}] (title: ${sanitizeRetrieved(d.title, 120)}${
+              sourceLocator({ page: d.page_number ?? null, section: d.section ?? null })
+                ? ` | ${sanitizeRetrieved(sourceLocator({ page: d.page_number ?? null, section: d.section ?? null }), 200)}`
+                : ""
+            })\n${sanitizeRetrieved(
               d.content,
               CONTEXT_LIMITS.maxDocumentExcerptChars,
             )}`,
