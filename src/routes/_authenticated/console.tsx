@@ -10,8 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  deleteKnowledge,
   deleteMemory,
   getBrainOverview,
+  getKnowledgeMetrics,
+  reindexKnowledge,
+  updateMemory,
+  uploadKnowledgeFile,
   ingestKnowledge,
   listAuditEvents,
   listDocuments,
@@ -369,7 +374,9 @@ function MemoryPanel() {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listMemories);
   const removeFn = useServerFn(deleteMemory);
+  const updateFn = useServerFn(updateMemory);
   const memories = useQuery({ queryKey: ["memories"], queryFn: () => listFn({}) });
+  const [editing, setEditing] = useState<{ id: string; content: string } | null>(null);
 
   return (
     <div className="space-y-2">
@@ -379,11 +386,37 @@ function MemoryPanel() {
         (memories.data ?? []).map((memory) => (
           <div key={memory.id} className="panel flex items-start justify-between gap-3 p-4">
             <div className="min-w-0">
-              <p className="text-sm text-foreground">{memory.content}</p>
+              {editing?.id === memory.id ? (
+                <Textarea
+                  value={editing.content}
+                  rows={2}
+                  onChange={(e) => setEditing({ id: memory.id, content: e.target.value })}
+                />
+              ) : (
+                <p className="text-sm text-foreground">{memory.content}</p>
+              )}
               <p className="label-mono mt-1">
                 {memory.memory_type} · importance {memory.importance} · {memory.source}
               </p>
             </div>
+            <div className="flex shrink-0 gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                if (editing?.id !== memory.id) return setEditing({ id: memory.id, content: memory.content });
+                try {
+                  await updateFn({ data: editing });
+                  setEditing(null);
+                  queryClient.invalidateQueries({ queryKey: ["memories"] });
+                  toast.success("Memory corrected");
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Update failed");
+                }
+              }}
+            >
+              {editing?.id === memory.id ? "Save" : "Edit"}
+            </Button>
             <Button
               size="sm"
               variant="ghost"
@@ -395,6 +428,7 @@ function MemoryPanel() {
             >
               Forget
             </Button>
+            </div>
           </div>
         ))
       )}
@@ -406,13 +440,77 @@ function KnowledgePanel() {
   const queryClient = useQueryClient();
   const docsFn = useServerFn(listDocuments);
   const ingestFn = useServerFn(ingestKnowledge);
-  const documents = useQuery({ queryKey: ["documents"], queryFn: () => docsFn({}) });
+  const uploadFn = useServerFn(uploadKnowledgeFile);
+  const reindexFn = useServerFn(reindexKnowledge);
+  const deleteFn = useServerFn(deleteKnowledge);
+  const metricsFn = useServerFn(getKnowledgeMetrics);
+  const documents = useQuery({
+    queryKey: ["documents"],
+    queryFn: () => docsFn({}),
+    refetchInterval: (q) => ((q.state.data ?? []).some((d) => d.status === "processing") ? 3000 : false),
+  });
+  const metrics = useQuery({ queryKey: ["knowledge-metrics"], queryFn: () => metricsFn({}) });
+  const [uploading, setUploading] = useState(false);
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["documents"] });
+    queryClient.invalidateQueries({ queryKey: ["knowledge-metrics"] });
+  };
+  const onFile = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) { toast.error("File exceeds the 10 MB limit"); return; }
+    setUploading(true);
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      const result = await uploadFn({ data: { filename: file.name, base64: btoa(bin) } });
+      toast.success(result.duplicate ? "Already indexed — duplicate skipped" : `Indexed ${result.chunks} chunks`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      refresh();
+    }
+  };
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
 
   return (
     <div className="space-y-6">
+      {metrics.data ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[
+            ["Retrievals", String(metrics.data.retrievals)],
+            ["Evidence hit rate", `${Math.round(metrics.data.hitRate * 100)}%`],
+            ["Citation coverage", `${Math.round(metrics.data.citationCoverage * 100)}%`],
+            ["Avg retrieval", `${metrics.data.avgLatencyMs} ms`],
+            ["Invalid citations removed", String(metrics.data.invalidCitations)],
+            ["Failed documents", String(metrics.data.failedDocuments)],
+            ["Model errors", String(metrics.data.modelErrors)],
+          ].map(([k, v]) => (
+            <div key={k} className="panel p-3">
+              <p className="label-mono">{k}</p>
+              <p className="mt-1 text-lg font-medium">{v}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="panel space-y-3 p-4">
+        <p className="label-mono">Upload document · PDF, DOCX, TXT, MD, CSV · max 10 MB</p>
+        <Input
+          type="file"
+          accept=".pdf,.docx,.txt,.md,.markdown,.csv"
+          disabled={uploading}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void onFile(f);
+            e.target.value = "";
+          }}
+        />
+        {uploading ? <p className="text-sm text-muted-foreground">Extracting, chunking and embedding…</p> : null}
+      </div>
+
       <form
         className="panel space-y-3 p-4"
         onSubmit={async (event) => {
@@ -450,9 +548,44 @@ function KnowledgePanel() {
           <div key={doc.id} className="panel flex items-center justify-between gap-3 p-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{doc.title}</p>
-              <p className="label-mono mt-0.5">{doc.chunk_count} chunks</p>
+              <p className="label-mono mt-0.5">
+                {doc.file_type ?? "text"} · {doc.chunk_count} chunks
+                {doc.page_count ? ` · ${doc.page_count} pages` : ""}
+                {doc.source_filename ? ` · ${doc.source_filename}` : ""}
+              </p>
+              {doc.error ? <p className="mt-1 text-xs text-destructive">{doc.error}</p> : null}
             </div>
-            <Badge variant="secondary">{doc.status}</Badge>
+            <div className="flex shrink-0 items-center gap-1">
+              <Badge variant={doc.status === "failed" ? "destructive" : "secondary"}>{doc.status}</Badge>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={doc.status === "processing"}
+                onClick={async () => {
+                  try {
+                    await reindexFn({ data: { id: doc.id } });
+                    toast.success("Re-indexed");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Re-index failed");
+                  }
+                  refresh();
+                }}
+              >
+                {doc.status === "failed" ? "Retry" : "Re-index"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  if (!confirm(`Delete "${doc.title}" and all its chunks?`)) return;
+                  await deleteFn({ data: { id: doc.id } });
+                  toast.success("Document deleted");
+                  refresh();
+                }}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         ))}
       </div>
@@ -464,7 +597,14 @@ function Playground() {
   const sendFn = useServerFn(sendBrainMessage);
   const [message, setMessage] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>();
-  const [log, setLog] = useState<{ role: string; content: string; meta?: string }[]>([]);
+  const [log, setLog] = useState<
+    {
+      role: string;
+      content: string;
+      meta?: string;
+      sources?: { label?: string; title: string; page?: number | null; section?: string | null; cited?: boolean }[];
+    }[]
+  >([]);
   const [busy, setBusy] = useState(false);
 
   return (
@@ -477,6 +617,18 @@ function Playground() {
             <div key={index}>
               <p className="label-mono">{entry.role}</p>
               <p className="whitespace-pre-wrap text-sm text-foreground">{entry.content}</p>
+              {entry.sources && entry.sources.length > 0 ? (
+                <ul className="mt-2 space-y-0.5">
+                  {entry.sources.map((src) => (
+                    <li key={src.label ?? src.title} className="label-mono">
+                      [{src.label}] {src.title}
+                      {src.page != null ? ` · p. ${src.page}` : ""}
+                      {src.section ? ` · ${src.section}` : ""}
+                      {src.cited ? " · cited" : " · retrieved, not cited"}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {entry.meta ? <p className="label-mono mt-1">{entry.meta}</p> : null}
             </div>
           ))
@@ -501,6 +653,7 @@ function Playground() {
               {
                 role: "bithy",
                 content: response.message,
+                sources: response.sources ?? [],
                 meta: `intent: ${response.reasoning?.intent ?? "n/a"} · tools: ${
                   response.reasoning?.toolsUsed.join(", ") || "none"
                 }`,

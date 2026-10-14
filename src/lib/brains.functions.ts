@@ -202,7 +202,7 @@ export const listDocuments = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("documents")
-      .select("id, title, file_type, status, chunk_count, application, error, created_at")
+      .select("id, title, file_type, status, chunk_count, application, error, created_at, source_filename, page_count, byte_size, attempts")
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
@@ -224,6 +224,116 @@ export const ingestKnowledge = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { ingestDocument } = await import("@/lib/brains/rag.server");
     return ingestDocument(context.supabase, context.userId, data);
+  });
+
+export const uploadKnowledgeFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        filename: z.string().trim().min(1).max(200),
+        title: z.string().trim().max(200).optional(),
+        base64: z.string().min(1).max(14_500_000),
+        application: z.string().trim().max(64).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const k = await import("@/lib/brains/knowledge");
+    const type = k.detectFileType(data.filename);
+    if (!type) throw new Error("Unsupported file type. Use PDF, DOCX, TXT, MD or CSV.");
+    const bin = atob(data.base64);
+    if (bin.length > k.KNOWLEDGE_LIMITS.maxFileBytes) throw new Error("File exceeds the 10 MB limit");
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    if (!k.sniffMatches(type, bytes)) throw new Error("File contents do not match its extension");
+    let pages;
+    try {
+      pages = await k.extractPages(type, bytes);
+    } catch {
+      throw new Error("Could not read this file. It may be corrupted, encrypted or scanned without text.");
+    }
+    const { ingestPages } = await import("@/lib/brains/rag.server");
+    const { auditLog } = await import("@/lib/brains/permissions.server");
+    const result = await ingestPages(context.supabase, context.userId, {
+      title: data.title || data.filename.replace(/\.[^.]+$/, ""),
+      pages,
+      fileType: type,
+      application: data.application,
+      sourceFilename: data.filename,
+      byteSize: bytes.length,
+    });
+    await auditLog(context.supabase, {
+      userId: context.userId,
+      action: "knowledge.ingest",
+      resource: result.documentId,
+      metadata: { file_type: type, bytes: bytes.length, chunks: result.chunks, duplicate: result.duplicate },
+    }).catch(() => undefined);
+    return result;
+  });
+
+export const reindexKnowledge = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { reindexDocument } = await import("@/lib/brains/rag.server");
+    return reindexDocument(context.supabase, context.userId, data.id);
+  });
+
+export const deleteKnowledge = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("documents").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    const { auditLog } = await import("@/lib/brains/permissions.server");
+    await auditLog(context.supabase, { userId: context.userId, action: "knowledge.delete", resource: data.id }).catch(
+      () => undefined,
+    );
+    return { ok: true };
+  });
+
+export const updateMemory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), content: z.string().trim().min(3).max(2000) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { embed } = await import("@/lib/brains/ai/provider.server");
+    const { toVector } = await import("@/lib/brains/db.server");
+    const embedding = await embed(data.content);
+    const { error } = await context.supabase
+      .from("memories")
+      .update({ content: data.content, embedding: toVector(embedding) })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getKnowledgeMetrics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [reqs, docs] = await Promise.all([
+      context.supabase
+        .from("ai_requests")
+        .select("rag_ms, rag_candidates, rag_selected, citations_valid, citations_invalid, success")
+        .not("rag_selected", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(200),
+      context.supabase.from("documents").select("status"),
+    ]);
+    const rows = reqs.data ?? [];
+    const n = rows.length || 1;
+    return {
+      retrievals: rows.length,
+      hitRate: rows.filter((r) => (r.rag_selected ?? 0) > 0).length / n,
+      avgLatencyMs: Math.round(rows.reduce((a, r) => a + (r.rag_ms ?? 0), 0) / n),
+      citationCoverage:
+        rows.filter((r) => (r.rag_selected ?? 0) > 0 && (r.citations_valid ?? 0) > 0).length /
+        (rows.filter((r) => (r.rag_selected ?? 0) > 0).length || 1),
+      invalidCitations: rows.reduce((a, r) => a + (r.citations_invalid ?? 0), 0),
+      modelErrors: rows.filter((r) => !r.success).length,
+      failedDocuments: (docs.data ?? []).filter((d) => d.status === "failed").length,
+    };
   });
 
 export const getPersonality = createServerFn({ method: "GET" })
