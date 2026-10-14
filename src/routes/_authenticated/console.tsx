@@ -456,7 +456,7 @@ function KnowledgePanel() {
     queryClient.invalidateQueries({ queryKey: ["knowledge-metrics"] });
   };
   const onFile = async (file: File) => {
-    if (file.size > 10 * 1024 * 1024) return toast.error("File exceeds the 10 MB limit");
+    if (file.size > 10 * 1024 * 1024) { toast.error("File exceeds the 10 MB limit"); return; }
     setUploading(true);
     try {
       const buf = new Uint8Array(await file.arrayBuffer());
